@@ -36,37 +36,6 @@ require_once($CFG->dirroot. '/course/format/lib.php');
 
 class format_onetopic extends format_base {
 
-    const TEMPLATETOPIC_NOT = 0;
-    const TEMPLATETOPIC_SINGLE = 1;
-    const TEMPLATETOPIC_LIST = 2;
-
-    /**
-     * Creates a new instance of class
-     *
-     * Please use {@link course_get_format($courseorid)} to get an instance of the format class
-     *
-     * @param string $format
-     * @param int $courseid
-     * @return format_base
-     */
-    protected function __construct($format, $courseid) {
-        parent::__construct($format, $courseid);
-
-        //Hack for section number, when not is like a param in the url
-        global $section, $PAGE, $USER, $urlparams;
-
-        if (empty($section)) {
-            if (isset($USER->display[$courseid]) && ($PAGE->pagetype == 'course-view-onetopic' || $PAGE->pagetype == 'course-view')
-                    && isset($urlparams) && is_array($urlparams)) {
-
-                $section = $USER->display[$courseid];
-                $urlparams['section'] = $USER->display[$courseid];
-                $PAGE->set_url('/course/view.php', $urlparams);
-
-            }
-        }
-    }
-
     /**
      * Returns true if this course format uses sections
      *
@@ -90,22 +59,8 @@ class format_onetopic extends format_base {
             return format_string($section->name, true,
                     array('context' => context_course::instance($this->courseid)));
         } else {
-            return $this->get_default_section_name($section);
+            return get_string('sectionname', 'format_onetopic') . ' ' . $section->section;
         }
-    }
-
-    /**
-     * Returns the default section name for the topics course format.
-     *
-     * If the section number is 0, it will use the string with key = section0name from the course format's lang file.
-     * If the section number is not 0, the base implementation of format_base::get_default_section_name which uses
-     * the string with the key = 'sectionname' from the course format's lang file + the section number will be used.
-     *
-     * @param stdClass $section Section object from database or just field course_sections section
-     * @return string The default value for the section name.
-     */
-    public function get_default_section_name($section) {
-        return get_string('sectionname', 'format_onetopic') . ' ' . $section->section;
     }
 
     /**
@@ -176,20 +131,13 @@ class format_onetopic extends format_base {
      * @param navigation_node $node The course node within the navigation
      */
     public function extend_course_navigation($navigation, navigation_node $node) {
-        global $PAGE, $COURSE, $USER;
-
+        global $PAGE;
         // if section is specified in course/view.php, make sure it is expanded in navigation
         if ($navigation->includesectionnum === false) {
             $selectedsection = optional_param('section', null, PARAM_INT);
-            if ((!defined('AJAX_SCRIPT') || AJAX_SCRIPT == '0') &&
+            if ($selectedsection !== null && (!defined('AJAX_SCRIPT') || AJAX_SCRIPT == '0') &&
                     $PAGE->url->compare(new moodle_url('/course/view.php'), URL_MATCH_BASE)) {
-
-                if ($selectedsection !== null) {
-                    $navigation->includesectionnum = $selectedsection;
-                }
-                else if (isset($USER->display[$COURSE->id])) {
-                    $navigation->includesectionnum = $USER->display[$COURSE->id];
-                }
+                $navigation->includesectionnum = $selectedsection;
             }
         }
 
@@ -276,14 +224,10 @@ class format_onetopic extends format_base {
                     'default' => $courseconfig->coursedisplay,
                     'type' => PARAM_INT
                 ),
-                'templatetopic' => array(
-                    'default' => self::TEMPLATETOPIC_NOT,
-                    'type' => PARAM_INT
+                'customcss' => array(
+                    'default' => '',
+                    'type' => PARAM_TEXT
                 ),
-                'templatetopic_icons' => array(
-                    'default' => 0,
-                    'type' => PARAM_INT
-                )
             );
         }
         if ($foreditform && !isset($courseformatoptions['coursedisplay']['label'])) {
@@ -338,31 +282,10 @@ class format_onetopic extends format_base {
                     'help' => 'coursedisplay',
                     'help_component' => 'format_onetopic',
                 ),
-                'templatetopic' => array(
-                    'label' => new lang_string('templatetopic', 'format_onetopic'),
-                    'element_type' => 'select',
-                    'element_attributes' => array(
-                        array(
-                            self::TEMPLATETOPIC_NOT => new lang_string('templetetopic_not', 'format_onetopic'),
-                            self::TEMPLATETOPIC_SINGLE => new lang_string('templetetopic_single', 'format_onetopic'),
-                            self::TEMPLATETOPIC_LIST => new lang_string('templetetopic_list', 'format_onetopic')
-                        )
-                    ),
-                    'help' => 'templatetopic',
-                    'help_component' => 'format_onetopic',
+                'customcss' => array(
+                    'label' => get_string('customcss', 'moodle'),
+                    'element_type' => 'textarea',
                 ),
-                'templatetopic_icons' => array(
-                    'label' => get_string('templatetopic_icons', 'format_onetopic'),
-                    'help' => 'templatetopic_icons',
-                    'help_component' => 'format_onetopic',
-                    'element_type' => 'select',
-                    'element_attributes' => array(
-                        array(
-                            0 => new lang_string('no'),
-                            1 => new lang_string('yes')
-                        )
-                    ),
-                )
             );
             $courseformatoptions = array_merge_recursive($courseformatoptions, $courseformatoptionsedit);
         }
@@ -437,10 +360,6 @@ class format_onetopic extends format_base {
                         // and $data['hidetabsbar'] is not set,
                         // we fill it with the default option
                         $data['hidetabsbar'] = 0;
-                    } else if ($key === 'templatetopic') {
-                        $data['templatetopic'] = self::TEMPLATETOPIC_NOT;
-                    } else if ($key === 'templatetopic_icons') {
-                        $data['templatetopic_icons'] = 0;
                     }
                 }
             }
@@ -551,60 +470,5 @@ class format_onetopic extends format_base {
     public function can_delete_section($section) {
         return true;
     }
-
-    //ToDo: feature #45
-    /*public function course_content_header() {
-        return new format_onetopic_header();
-    }*/
 }
 
-class format_onetopic_replace_regularexpression {
-    public $_string_search;
-    public $_string_replace;
-
-    public $_tag_string = '{label_tag_replace}';
-
-    public function replace_tag_in_expresion ($match) {
-
-        $term = $match[0];
-        $term = str_replace("[[", '', $term);
-        $term = str_replace("]]", '', $term);
-
-        $text = strip_tags($term);
-
-        if (strpos($text, ':') > -1) {
-
-            $pattern = '/([^:])+:/i';
-            $text = preg_replace($pattern, '', $text);
-
-            //Change text for alternative text
-            $new_replace = str_replace($this->_string_search, $text, $this->_string_replace);
-
-            //posible html tags position
-            $pattern = '/([>][^<]*:[^<]*[<])+/i';
-            $term = preg_replace($pattern, '><:><', $term);
-
-            $pattern = '/([>][^<]*:[^<]*$)+/i';
-            $term = preg_replace($pattern, '><:>', $term);
-
-            $pattern = '/(^[^<]*:[^<]*[<])+/i';
-            $term = preg_replace($pattern, '<:><', $term);
-
-            $pattern = '/(^[^<]*:[^<]*$)/i';
-            $term = preg_replace($pattern, '<:>', $term);
-
-            $pattern = '/([>][^<^:]*[<])+/i';
-            $term = preg_replace($pattern, '><', $term);
-
-            $term = str_replace('<:>', $new_replace, $term);
-        }
-        else {
-            //Change tag for resource or mod name
-            $new_replace = str_replace($this->_tag_string, $this->_string_search, $this->_string_replace);
-            $term = str_replace($this->_string_search, $new_replace, $term);
-        }
-        return $term;
-    }
-}
-
-class format_onetopic_header implements renderable {}
