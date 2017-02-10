@@ -88,14 +88,7 @@ if ($disable_ajax !== -1) {
 
 //agregar css antes de renderizar
 $formato=course_get_format($course->id)->get_format_options();
-echo "<style>{$formato['customcss']}
-.content .summary{float:left;width:60%;padding-right:20px!important;}
-ul.section{float:left;width:35%;display:inline}
-.section li {width:100%}
-.elemento-cra .media { transition: all .2s ease-in-out; }
-.elemento-cra .media:hover { transform: scale(1.1); }
-/*.section li:nth-child(1){float:left;width:60%;padding-right:20px!important;}*/
-</style>";
+echo "<style>{$formato['customcss']}</style>";
 
 $renderer->print_single_section_page($course, null, null, null, null, $displaysection);
 
